@@ -1,19 +1,13 @@
 // Description for steps regarding italian financial data fields
 const Login = require('../page_objects/page');
+const {Then, When, Given} = require('cucumber');
 
-module.exports = function () {
+Given('user opens page', async () => {
+  await restUtils.postRequest()
+});
 
-    const login = new Login();
+When('user creates template', async () => {
+});
 
-    this.Given(/^Given step$/, async () => {
-
-    });
-
-    this.When(/^When step$/, async () => {
-
-    });
-
-    this.Then(/^Then step$/, async () => {
-
-    });
-};
+Then('templates page is displayed', async () => {
+});

@@ -1,56 +1,73 @@
+/*
+Cucumber specific hooks
+
+BeforeAll, AfterAll - runs in the beginning/end of Feature file, before any Scenario is executed. Is not displayed in report
+Before, After - runs before/after each scenario. Can be more than one. Is displayed in report if something was attached to it. Executed from the bottom to the top.
+*/
 const fs = require('fs-extra');
 const path = require('path');
+const { After } = require('cucumber');
 
-module.exports = function() {
+After(async function (scenarioResult) {
 
-    this.Before(function () {
-        const pageNotFound = $('#main-frame-error');
-        assert.eventually.equal(
-            pageNotFound.isPresent(),
-            false,
-            "Page Not Found error");
-    });
+  // Attach screenshot in case Scenario is failed, or difference picture in case scenario is failed while doing visual regression
+  if (scenarioResult.result.status === 'failed') {
+    if (browser.imageComparisonName) {
+      const fileData = fs.readFileSync(_getDiffImagePath());
+      const b64log = Buffer.from('Difference image').toString('base64');
+      this.attach(b64log, 'text/plain');
+      this.attach(fileData, 'image/png');
+    } else {
+      const screenShot = await browser.driver.takeScreenshot();
+      this.attach(screenShot, 'image/png');
+    }
+  }
+  browser.imageComparisonName = null;
+  browser.sharedData = null;
+});
 
-    this.After(function (scenario, callback) {
-        if (scenario.isFailed()) {
-            if(browser.imageComparisonName) {
-                const fileData = fs.readFileSync(_getDiffImagePath());
-                browser.driver.manage().window().setSize(1366, 768);
-                scenario.attach(fileData, 'image/png', error => callback(error));
-            }
-            else {
-                browser.takeScreenshot().then(function (base64png) {
-                    const decodedImage = new Buffer(base64png, 'base64');
-                    scenario.attach(decodedImage, 'image/png', function (error) {
-                        callback(error);
-                    });
-                }, function (err) {
-                    callback(err);
-                });
-            }
-        }
-        else {
-            callback();
-        }
-        browser.imageComparisonName = null;
-    });
-};
+After(async function (scenarioResult) {
 
+  // Attach actual picture in case scenario is failed while doing visual regression
+  if (scenarioResult.result.status === 'failed' && browser.imageComparisonName) {
+    const fileData = fs.readFileSync(_getActualImagePath());
+    const b64log = Buffer.from('Actual image').toString('base64');
+    this.attach(b64log, 'text/plain');
+    this.attach(fileData, 'image/png');
+  }
+});
+
+After(async function (scenarioResult) {
+
+  // Attach reference picture in case scenario is failed while doing visual regression
+  if (scenarioResult.result.status === 'failed' && browser.imageComparisonName) {
+    const fileData = fs.readFileSync(_getReferenceImagePath());
+    const b64log = Buffer.from('Reference image').toString('base64');
+    this.attach(b64log, 'text/plain');
+    this.attach(fileData, 'image/png');
+  }
+});
+
+//returns absolute path to difference image
 function _getDiffImagePath() {
 
-    const imageComparisonConfig = browser.protractorImageComparison;
-    const imageName = [
-        browser.imageComparisonName,
-        '-',
-        imageComparisonConfig.browserName,
-        '-',
-        imageComparisonConfig.browserWidth,
-        'x',
-        imageComparisonConfig.browserHeight,
-        '-dpr-',
-        imageComparisonConfig.devicePixelRatio,
-        '.png'
-    ].join('');
+  const imageName = browser.imageComparisonName;
 
-    return path.join('screenshots/actual/diff/', imageName);
+  return path.join('screenshots/diff/', imageName);
+}
+
+//returns absolute path to actual image
+function _getActualImagePath() {
+
+  const imageName = browser.imageComparisonName;
+
+  return path.join('screenshots/actual/', imageName);
+}
+
+//returns absolute path to reference image
+function _getReferenceImagePath() {
+
+  const imageName = browser.imageComparisonName;
+
+  return path.join('screenshots-reference/', imageName);
 }
